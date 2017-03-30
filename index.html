@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0, user-scalable=no">
+<title>手势密码</title>
+<style type="text/css">
+*{margin: 0;padding:0;}
+body{background-color:#ccc;}
+#app{margin:0 auto;text-align:center;}
+#app h5{margin-top:10px;margin-right:80px;font-size:18px;}
+#canvas{display: inline-block;margin-top: 15px;}
+.title{margin-bottom:35px;font-size:20px; }
+</style>
+</head>
+<body>
+<div id="app" >
+	<div>
+	<canvas id="canvas" width="300" height="300"></canvas>
+	<h4 id="title" class="title">请输入手势密码</h4>
+	<h5><input type="radio" checked="true" id="updatePassword" name="pasw">设置密码</h5>
+	<h5><input type="radio" name="pasw" id="checkPassword">验证密码</h5>
+    </div>
+</div>
+</body>
+<script type="text/javascript">
+window.onload=function(){
+	GesturePasswordDemo();
+}
+function GesturePasswordDemo(){
+         //定义GesturePassword对象
+        window.GesturePassword = function(objectPassword){
+            this.height = objectPassword.height;
+            this.width = objectPassword.width;
+        };
+        //初始化对象函数
+        GesturePassword.prototype.initFn = function() {
+            this.passwordObj = window.localStorage.getItem('passwordInfo') ? {
+                state: 2,spassword: JSON.parse(window.localStorage.getItem('passwordInfo'))} : {};
+            this.finalPoint = [];
+            this.confirmState();
+            this.touchFlag = false;
+            this.canvas = document.getElementById('canvas');
+            this.ctx = this.canvas.getContext('2d');
+            this.createCircle();//初始化画板，显示手势密码圆圈
+            if(this.passwordObj.state == 2){   //如果已经设置了手势密码，将验证密码选中，进行手势密码验证
+                document.getElementById('checkPassword').setAttribute('checked',true);
+            }
+            else{
+                 document.getElementById('checkPassword').setAttribute('disabled',true);
+                 document.getElementById('updatePassword').setAttribute('checked',true);
+            }
+            //调用绑定事件函数
+            this.bindTargetEvent();
+        }
+        //创建设置手势密码的九个圆圈
+          GesturePassword.prototype.createCircle = function() {
+            var temp = 3, mount=0;
+            this.finalPoint = [];
+            this.arrList = [];
+            this.firstPoint = [];
+             this.r = this.ctx.canvas.width / (2 + 4 * temp);
+            var r = this.r;
+            for (var i = 0 ; i < temp ; i++) {
+                for (var j = 0 ; j < temp ; j++) {
+                    mount++;
+                    var objPsw = { x: j * 4 * r + 3 * r, y: i * 4 * r + 3 * r, index: mount};
+                    this.firstPoint.push(objPsw);
+                    this.arrList.push(objPsw);//将这九个圆圈的坐标及第几个保存在数组中
+                }
+            }
+            this.ctx.clearRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
+            for (var k = 0 ; k < this.arrList.length ; k++) {
+                this.drawCircle(this.arrList[k].x, this.arrList[k].y);//调用画圆函数进行画圆圈
+            }
+        }
+        // 画圆函数
+        GesturePassword.prototype.drawCircle = function(x, y) { 
+            this.ctx.strokeStyle = 'black'; //表示圆边框颜色 黑色
+            this.ctx.lineWidth = 2;
+            this.ctx.beginPath();
+            this.ctx.fillStyle = 'white';//表示圆的填充颜色   百色
+            this.ctx.arc(x, y, this.r, 0, Math.PI * 2, true);//arc开始画圆
+            this.ctx.closePath();
+            this.ctx.stroke();
+            this.ctx.fill();
+        }
+        //事件绑定函数
+          GesturePassword.prototype.bindTargetEvent = function() {
+            var _this = this;
+            this.canvas.addEventListener("touchstart", function (e) { //绑定触摸开始事件
+                e.preventDefault();
+                 var pos = _this.getPositionXY(e);
+                 for (var l = 0 ; l < _this.arrList.length ; l++) {
+                    if (Math.abs(pos.x - _this.arrList[l].x) < _this.r && Math.abs(pos.y - _this.arrList[l].y) < _this.r) {
+                        _this.touchFlag = true;
+                        _this.drawTargetPoint(_this.arrList[l].x,_this.arrList[l].y);
+                        _this.finalPoint.push(_this.arrList[l]);
+                        _this.firstPoint.splice(l,1);
+                        break;
+                    }
+                 }
+             }, false);
+             this.canvas.addEventListener("touchmove", function (e) {//绑定触摸移动事件
+                if (_this.touchFlag) {
+                    _this.change(_this.getPositionXY(e));
+                }
+             }, false);
+             this.canvas.addEventListener("touchend", function (e) {//绑定触摸结束事件，即手离开触屏
+                 if (_this.touchFlag) {
+                     _this.touchFlag = false;
+                     _this.storePassword(_this.finalPoint);
+                     setTimeout(function(){
+                        _this.confirmState();
+                        _this.createCircle();
+                    }, 800);
+                 }
+ 
+             }, false);
+             document.addEventListener('touchmove', function(e){
+                e.preventDefault();
+             },false);
+             document.getElementById('updatePassword').addEventListener('click', function(){
+                 _this.passwordObj.state = 1;
+                 _this.updatePassword();
+              });
+        }
+         
+         // 获取触摸点的坐标
+        GesturePassword.prototype.getPositionXY = function(e) {
+            var rect = e.currentTarget.getBoundingClientRect();
+            var pos = { x: e.touches[0].clientX - rect.left,y: e.touches[0].clientY - rect.top };
+            return pos;
+        }
+        // 画圆心
+        GesturePassword.prototype.drawTargetPoint = function() { 
+            for (var q = 0 ; q < this.finalPoint.length ; q++) {
+                this.ctx.fillStyle = '#f68005';//表示 填充颜色   橙色
+                this.ctx.beginPath();
+                this.ctx.arc(this.finalPoint[q].x, this.finalPoint[q].y, this.r , 0, Math.PI * 2, true);
+                this.ctx.closePath();
+                this.ctx.fill();
+            }
+        }
+       
+        // 验证手势密码的轨迹
+        GesturePassword.prototype.drawTargetLine = function(pos, finalPoint) {
+            this.ctx.beginPath();
+            this.ctx.strokeStyle = 'red';//表示线边框颜色   红色
+            this.ctx.lineWidth = 2;
+            this.ctx.moveTo(this.finalPoint[0].x, this.finalPoint[0].y);
+            for (var m = 1 ; m < this.finalPoint.length; m++) {
+                this.ctx.lineTo(this.finalPoint[m].x, this.finalPoint[m].y);
+            }
+            this.ctx.lineTo(pos.x, pos.y);
+            this.ctx.stroke();
+            this.ctx.closePath();
+        }
+       // 在触摸移动的时候调用变换方法
+        GesturePassword.prototype.change = function(pos) {
+            this.ctx.clearRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
+            for (var n = 0 ; n < this.arrList.length ; n++) { 
+                this.drawCircle(this.arrList[n].x, this.arrList[n].y);// 将九个圆圈画出来
+            }
+           // 画轨迹
+            this.drawTargetPoint(this.finalPoint);
+            // 画圆心
+            this.drawTargetLine(pos , this.finalPoint);
+            for (var i = 0 ; i < this.firstPoint.length ; i++) {
+                if (Math.abs(pos.x - this.firstPoint[i].x) < this.r && Math.abs(pos.y - this.firstPoint[i].y) < this.r) {
+                    this.drawTargetPoint(this.firstPoint[i].x, this.firstPoint[i].y);
+                    this.finalPoint.push(this.firstPoint[i]);
+                    this.firstPoint.splice(i, 1);
+                    break;
+                }
+            }
+        }
+        // 验证密码是否正确
+        GesturePassword.prototype.checkPassword = function(password1, password2) {
+            var value1 = '', value2 = '';
+            for (var i = 0 ; i < password1.length ; i++) {
+                value1 = value1 + password1[i].index + password1[i].index;
+            }
+            for (var i = 0 ; i < password2.length ; i++) {
+                value2 = value2 + password2[i].index + password2[i].index;
+            }
+            //返回验证密码时输入的手势密码与之前设置的密码是不是一样的
+            return value1 === value2; 
+        }
+        // 触摸结束之后对设置密码和密码状态的处理 密码状态为1表示设置密码，为2表示验证密码
+        GesturePassword.prototype.storePassword = function(password) {      
+            if (this.passwordObj.state == 1) {  //1表示设置手势密码 
+                if (this.checkPassword(this.passwordObj.fpassword, password)) {
+                   this.passwordObj.spassword = password;
+                   // alert(this.passwordObj.spassword.length);
+                    var pswLength=this.passwordObj.spassword.length;//判断设置的手势密码的点数
+                    if(pswLength >=5){
+                    this.passwordObj.state = 2;
+                     this.makeRadioChecked(this.passwordObj.state);
+                    document.getElementById('title').innerHTML = '密码设置成功';
+                   // alert("this.passwordObj.state密码设置成功:"+this.passwordObj.state);
+                    window.localStorage.setItem('passwordInfo', JSON.stringify(this.passwordObj.spassword));
+                    }
+                    else if(pswLength<=4){
+                     delete this.passwordObj.state;
+                      this.makeRadioChecked(this.passwordObj.state); //this.passwordObj.state为undefined的情况
+                     document.getElementById('title').innerHTML = '密码太短，至少需要5个点';
+                   
+                    
+                     }
+                } else if(this.checkPassword(this.passwordObj.fpassword, password)==false){
+                    this.makeRadioChecked(1);
+                    document.getElementById('title').innerHTML = '两次输入的不一致';
+                    
+                    delete this.passwordObj.state;
+                }
+                
+            } else if (this.passwordObj.state == 2) {    //2表示验证手势密码
+                this.makeRadioChecked(this.passwordObj.state);
+                document.getElementById('checkPassword').setAttribute('checked',true);
+                if (this.checkPassword(this.passwordObj.spassword, password)) {
+                    document.getElementById('title').innerHTML = '密码正确!';
+                } else {
+                   
+                    document.getElementById('title').innerHTML = '输入的密码不正确';
+                }
+            } else {            //表示重新设置手势密码  this.passwordObj.state为undefined的情况
+                this.passwordObj.state = 1;
+                this.passwordObj.fpassword = password;
+                document.getElementById('title').innerHTML = '请再次输入手势密码';
+            }
+ 
+        }
+        //判断设置密码和验证密码的radio按钮被选中
+         GesturePassword.prototype.makeRadioChecked=function(num){
+              if(num==2){  //2表示验证密码，故选中验证密码radio
+                document.getElementById("updatePassword").checked=false;
+                 document.getElementById("checkPassword").checked=true;  //setAttribute设置checked时有的不兼容
+               /* document.getElementById('updatePassword').removeAttribute('checked');
+                document.getElementById('checkPassword').setAttribute('checked','checked');*/
+                 document.getElementById('checkPassword').removeAttribute('disabled');
+
+              }
+              else{
+                document.getElementById("checkPassword").checked=false;
+                document.getElementById("updatePassword").checked=true;
+              /*  document.getElementById('checkPassword').removeAttribute('checked');
+                document.getElementById('updatePassword').setAttribute('checked','checked');*/
+                 document.getElementById('checkPassword').setAttribute('disabled',true);
+              }
+
+         }
+         //判断title显示输入密码还是验证密码
+        GesturePassword.prototype.confirmState = function() {
+            var self=this;
+             //alert("confirmState:"+this.passwordObj.state);
+            if (this.passwordObj.state == 2) {
+                  self.makeRadioChecked(2);
+                document.getElementById('title').innerHTML = '请验证手势密码';
+            } else  {
+                  self.makeRadioChecked(1);
+               document.getElementById('title').innerHTML = '请输入手势密码';
+            } 
+        }
+         //点击设置密码radio按钮，清除之前设置的密码，重新设置手势密码
+        GesturePassword.prototype.updatePassword = function(){
+            window.localStorage.removeItem('passwordInfo');
+            this.passwordObj = {};
+             this.confirmState();
+            this.createCircle();
+             this.makeRadioChecked(1);
+        }
+        
+          //创建GesturePassword对象，并调用初始化函数
+        new GesturePassword({}).initFn();
+};
+</script>
+</html>
